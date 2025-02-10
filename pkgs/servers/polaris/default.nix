@@ -10,13 +10,13 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "polaris";
-  version = "0.14.3";
+  version = "0.15.0";
 
   src = fetchFromGitHub {
     owner = "agersant";
     repo = "polaris";
     rev = version;
-    hash = "sha256-2GHYIlEzRS7KXahdrxMjyIcPCNw8gXJw5/4ZpB/zT3Y=";
+    hash = "sha256-uwYNyco4IY6lF+QSVEOVVhZCJ4nRkj8gsgRA0UydLHU=";
 
     # The polaris version upstream in Cargo.lock is "0.0.0".
     # We're unable to simply patch it in the patch phase due to
@@ -30,9 +30,10 @@ rustPlatform.buildRustPackage rec {
     '';
   };
 
+  useFetchCargoVendor = true;
   cargoHash = if stdenv.buildPlatform.isDarwin
     then "sha256-HTqsghjfSjwOaN/ApPFvWVEoquZzE3MYzULkhUOXIWI"
-    else "sha256-Z3AbYtdNAyKT5EuGtCktEg0fxs/gpKdsrttRkxZhLAU";
+    else "sha256-EUUxKLLdXgNp7GWTWAkzdNHKogu4Voo8wjeFFzM9iEg=";
 
   buildInputs = lib.optionals stdenv.hostPlatform.isDarwin [
     darwin.Security
@@ -44,15 +45,15 @@ rustPlatform.buildRustPackage rec {
     POLARIS_SWAGGER_DIR = "${placeholder "out"}/share/polaris-swagger";
   };
 
-  postInstall = ''
-    mkdir -p $out/share
-    cp -a docs/swagger $out/share/polaris-swagger
-  '';
-
   preCheck = ''
     # 'Err' value: Os { code: 24, kind: Uncategorized, message: "Too many open files" }
     ulimit -n 4096
   '';
+
+  checkFlags = [
+    # relies on network
+    "--skip=server::test::settings::put_settings_golden_path"
+  ];
 
   __darwinAllowLocalNetworking = true;
 
