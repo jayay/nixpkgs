@@ -12,14 +12,18 @@
   immich-machine-learning,
   # build-time deps
   glib,
+  importNpmLock,
   pkg-config,
   makeWrapper,
   curl,
+  cmake,
   cacert,
+  gnused,
   unzip,
   # runtime deps
   cairo,
   exiftool,
+  glibc,
   giflib,
   jellyfin-ffmpeg, # Immich depends on the jellyfin customizations, see https://github.com/NixOS/nixpkgs/issues/351943
   imagemagick,
@@ -96,7 +100,63 @@ let
     inherit (sources) hash;
   };
 
-  openapi = buildNpmPackage' {
+  sharp = buildNpmPackage' rec {
+    pname = "sharp";
+    version = "0.33.5";
+    src = fetchFromGitHub {
+      owner = "lovell";
+      repo = "sharp";
+      tag = "v0.33.5";
+      hash = "sha256-dVKPtJ0NCd66m1W5HrqOzoaJjIiFnY54GKwxrJduZvE=";
+    };
+    npmDepsHash = "sha256-YVAWOa5PRi7jyRfYeeCQ1pp9oc9PBLqbN9Eg3YYjovc=";
+
+    # Required because vips tries to write to the cache dir
+    makeCacheWritable = true;
+
+    env.npm_config_build_from_source = "true";
+    #env.CXX = "${lib.getExe stdenv.cc} -I${lib.getInclude glibc}/include";
+    env.SHARP_FORCE_GLOBAL_LIBVIPS = 1;
+    prePatch = ''
+      cp ${./sharp-package-lock-v${version}.json} ./package-lock.json
+    '';
+
+    nativeBuildInputs = [ pkg-config gnused ];
+    buildInputs = [ vips glib ];
+
+    #npmInstallFlags = [ "--include=dev" ];
+    #forceGitDeps = true;
+    #npmFlags = [ "--legacy-peer-deps" ];
+    #npmPackFlags = [ "--ignore-scripts" ];
+
+    npmDeps = importNpmLock {
+      npmRoot = src;
+      package = lib.importJSON "${src}/package.json";
+      packageLock = lib.importJSON ./sharp-package-lock-v${version}.json;
+    };
+    npmConfigHook = importNpmLock.npmConfigHook;
+    dontNpmBuild = true;
+
+    installPhase = ''
+      runHook preInstall
+
+    #  npm config delete cache
+    #  npm prune
+
+      npm run package-from-local-build
+      mkdir -p $out
+      #mv package.json package-lock.json README.md LICENSE $out/
+      #mv src/build/Release/sharp-linux-riscv64.node lib/sharp-linux-riscv64.node
+   
+      mv npm/linux-riscv64/lib $out/
+      cp npm/linux-x64/package.json npm/linux-riscv64/
+      sed -i 's/x64/riscv64/g' npm/linux-riscv64/package.json
+      mv npm/linux-riscv64/package.json $out/
+      runHook postInstall
+    '';
+  };
+
+    openapi = buildNpmPackage' {
     pname = "immich-openapi-sdk";
     inherit version;
     src = "${src}/open-api/typescript-sdk";
@@ -114,6 +174,9 @@ let
       runHook postInstall
     '';
   };
+
+
+
 
   web = buildNpmPackage' {
     pname = "immich-web";
@@ -134,12 +197,13 @@ let
     preBuild = ''
       rm node_modules/@immich/sdk
       ln -s ${openapi} node_modules/@immich/sdk
-      # Rollup does not find the dependency otherwise
-      ln -s node_modules/@immich/sdk/node_modules/@oazapfts node_modules/
-    '';
+      ln -s ${sharp} node_modules/sharp
+      ln -s ${sharp} node_modules/@img/sharp-linux-riscv64
+      ln -s ${sharp} node_modules/@img/sharp
+   '';
 
     env.npm_config_build_from_source = "true";
-
+    NODE_OPTIONS = "--disable-wasm-trap-handler";
     nativeBuildInputs = [
       pkg-config
     ];
@@ -153,6 +217,8 @@ let
       librsvg
       pango
       pixman
+      vips
+      glib
     ];
 
     installPhase = ''
@@ -208,7 +274,7 @@ buildNpmPackage' {
   # Required because vips tries to write to the cache dir
   makeCacheWritable = true;
 
-  env.SHARP_FORCE_GLOBAL_LIBVIPS = 1;
+  #env.SHARP_FORCE_GLOBAL_LIBVIPS = 1;
 
   preBuild = ''
     # If exiftool-vendored.pl isn't found, exiftool is searched for on the PATH
