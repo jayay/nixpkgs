@@ -130,7 +130,8 @@ stdenv.mkDerivation (finalAttrs: {
       (lib.mesonEnable "nifti" false)
     ]
     ++ lib.optional (!stdenv.hostPlatform.isDarwin) (lib.mesonBool "gtk_doc" true)
-    ++ lib.optional (imagemagick == null) (lib.mesonEnable "magick" false);
+    ++ lib.optional (imagemagick == null) (lib.mesonEnable "magick" false)
+    ++ lib.optional (libjxl == null) (lib.mesonEnable "jpeg-xl" false);
 
   passthru = {
     tests = {
