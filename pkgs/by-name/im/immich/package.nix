@@ -238,7 +238,8 @@ buildNpmPackage' {
   pname = "immich";
   inherit version;
   src = "${src}/server";
-  inherit (sources.components.server) npmDepsHash;
+  inherit (sources.components.server);
+  npmDepsHash = "sha256-Kp6EiQt1Pfq0hEkzJwwRa0OnBrwGy1goEvMaKJttcyw=";
 
   # prePatch is needed because npmConfigHook is a postPatch
   prePatch = ''
@@ -246,6 +247,10 @@ buildNpmPackage' {
     # see https://github.com/immich-app/immich/issues/13971
     substituteInPlace src/services/backup.service.ts \
       --replace-fail '`/usr/lib/postgresql/''${databaseMajorVersion}/bin/pg_dumpall`' '`pg_dump`'
+
+    substituteInPlace package-lock.json --replace-fail '"cpu-features": "~0.0.10",' ""
+
+    sed -i '/node_modules\/cpu-features/,+14d' package-lock.json
 
     # some part of the build wants to use un-prefixed binaries. let them.
     mkdir -p $TMP/bin
@@ -279,6 +284,9 @@ buildNpmPackage' {
   preBuild = ''
     # If exiftool-vendored.pl isn't found, exiftool is searched for on the PATH
     rm -r node_modules/exiftool-vendored.*
+    ln -s ${sharp} node_modules/sharp
+    ln -s ${sharp} node_modules/@img/sharp-linux-riscv64
+    ln -s ${sharp} node_modules/@img/sharp
   '';
 
   installPhase = ''
