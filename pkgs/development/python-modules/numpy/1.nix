@@ -183,6 +183,10 @@ buildPythonPackage rec {
     ++ lib.optionals (stdenv.hostPlatform.isDarwin && stdenv.hostPlatform.isx86_64) [
       # can fail on virtualized machines confused over their cpu identity
       "test_dispatcher"
+    ] ++ lib.optionals stdenv.hostPlatform.isRiscV64 [
+      "test_float" #  - AssertionError: > FAILED, NaN behaves differently
+      "test_fpclass"
+      "test_fp_noncontiguous"
     ];
 
   passthru = {
