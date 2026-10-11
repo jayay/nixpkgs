@@ -12,6 +12,9 @@
   stdenv,
   useMoldLinker,
   versionCheckHook,
+  bash,
+  coreutils,
+  gnugrep,
 }:
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "mold-unwrapped";
@@ -27,13 +30,27 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   cargoHash = "sha256-DgCFmTz+qulwXu1Oax8gBnc/6HIT6TlY8+xzBRGFvu0=";
 
+  nativeCheckInputs = [
+    bash
+    coreutils
+    gnugrep
+  ];
+
+  postPatch = ''
+    patchShebangs tests
+  '';
+
   postInstall = ''
     cp $out/bin/{mold,ld.mold}
   '';
 
+  preCheck = ''
+    export LD_LIBRARY_PATH="${gccStdenv.cc.cc.lib}/lib:${gccStdenv.cc.libc}/lib:$LD_LIBRARY_PATH"
+  '';
+
   # FIXME(azahi) Integration tests require $src/tests/*. These files must be
   # either passed to test phase or the test itself must be skipped.
-  doCheck = false;
+  doCheck = true;
 
   doInstallCheck = true;
   nativeInstallCheckInputs = [ versionCheckHook ];
